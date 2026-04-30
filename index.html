@@ -35,8 +35,10 @@
       cursor: pointer;
     }
     .abtn-pdf   { background: #1a56db; color: #fff; }
-    .abtn-add   { background: #16a34a; color: #fff; }
+    .abtn-xl    { background: #16a34a; color: #fff; }
+    .abtn-add   { background: #166534; color: #fff; }
     .abtn-clear { background: #f3f4f6; color: #333; border: 1px solid #ccc; }
+    .save-indicator { font-size: 11px; color: #16a34a; }
     .total-pill {
       background: #f0fdf4; border: 1px solid #86efac;
       border-radius: 20px; padding: 5px 14px;
@@ -221,8 +223,10 @@
   <img src="LOGO.png" alt="לוגו">
   <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
     <div class="total-pill">סה"כ: <span id="sTotal">0:00</span> | ימים: <span id="sDays">0</span></div>
+    <span class="save-indicator" id="saveInd"></span>
     <button class="abtn abtn-add"   onclick="addRow()">＋ הוסף יום</button>
     <button class="abtn abtn-pdf"   onclick="exportPDF()">📄 ייצוא PDF</button>
+    <button class="abtn abtn-xl"    onclick="exportExcel()">📊 ייצוא Excel</button>
     <button class="abtn abtn-clear" onclick="clearAll()">🗑️ נקה</button>
   </div>
 </div>
@@ -287,19 +291,54 @@
 
 <script>
 let rows = [], rid = 0;
+const STORAGE_KEY = 'attendance_data';
+
+/* ── שמירה / טעינה ── */
+function save() {
+  const data = {
+    rows,
+    rid,
+    company: document.getElementById('company').value,
+    empName: document.getElementById('empName').value,
+    empId:   document.getElementById('empId').value,
+    sigEmp:  document.getElementById('sigEmp').value,
+    sigMgr:  document.getElementById('sigMgr').value,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  const ind = document.getElementById('saveInd');
+  ind.textContent = '✓ נשמר';
+  setTimeout(() => { ind.textContent = ''; }, 2000);
+}
+
+function loadSaved() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return false;
+  try {
+    const data = JSON.parse(raw);
+    rows = data.rows || [];
+    rid  = data.rid  || rows.length;
+    document.getElementById('company').value = data.company || '';
+    document.getElementById('empName').value = data.empName || '';
+    document.getElementById('empId').value   = data.empId   || '';
+    document.getElementById('sigEmp').value  = data.sigEmp  || '';
+    document.getElementById('sigMgr').value  = data.sigMgr  || '';
+    return true;
+  } catch(e) { return false; }
+}
 
 function addRow(dateVal) {
   const id = rid++;
   rows.push({ id, date: dateVal || '', entry: '', exit: '', note: '' });
   renderTable();
   updateSummary();
+  save();
   setTimeout(() => {
     const el = document.getElementById('row_' + id);
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 40);
 }
 
-function del(id) { rows = rows.filter(r => r.id !== id); renderTable(); updateSummary(); }
+function del(id) { rows = rows.filter(r => r.id !== id); renderTable(); updateSummary(); save(); }
 
 function upd(id, f, v) {
   const r = rows.find(r => r.id === id);
@@ -309,6 +348,7 @@ function upd(id, f, v) {
   const cell = document.getElementById('tot_' + id);
   if (cell) cell.textContent = h;
   updateSummary();
+  save();
 }
 
 function calcH(en, ex) {
@@ -408,16 +448,51 @@ function exportPDF() {
   window.print();
 }
 
+function exportExcel() {
+  const company = document.getElementById('company').value;
+  const empName = document.getElementById('empName').value;
+  const empId   = document.getElementById('empId').value;
+
+  // CSV עם BOM לעברית ב-Excel
+  let csv = '﻿';
+  csv += `שם החברה והאתר:,${company}\n`;
+  csv += `שם עובד:,${empName},ת.ז.:,${empId}\n\n`;
+  csv += `תאריך,כניסה,יציאה,סה"כ שעות,הערה ליום\n`;
+  rows.forEach(r => {
+    csv += `${fmtDate(r.date)},${r.entry},${r.exit},${calcH(r.entry,r.exit)},${r.note}\n`;
+  });
+  // סיכום
+  let total = 0;
+  rows.forEach(r => {
+    const h = calcH(r.entry, r.exit);
+    if (h) { const [hh,mm] = h.split(':').map(Number); total += hh*60+mm; }
+  });
+  csv += `\n,,,סה"כ:,${Math.floor(total/60)}:${String(total%60).padStart(2,'0')}\n`;
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `דוח_נוכחות_${empName || 'עובד'}.csv`;
+  a.click();
+}
+
 function clearAll() {
-  if (!confirm('למחוק את כל הנתונים?')) return;
-  rows = [];
+  if (!confirm('למחוק את כל הנתונים? לא ניתן לשחזר.')) return;
+  rows = []; rid = 0;
   ['company','empName','empId','sigEmp','sigMgr'].forEach(id => document.getElementById(id).value = '');
+  localStorage.removeItem(STORAGE_KEY);
   renderTable();
   updateSummary();
 }
 
-// פתח עם שורה ריקה אחת
-addRow();
+// שמור גם שינויים בשדות הכותרת
+['company','empName','empId','sigEmp','sigMgr'].forEach(id => {
+  document.getElementById(id).addEventListener('input', save);
+});
+
+// טען נתונים שמורים או פתח עם שורה ריקה
+if (!loadSaved()) addRow();
+else { renderTable(); updateSummary(); }
 </script>
 </body>
 </html>
