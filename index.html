@@ -328,7 +328,7 @@ function loadSaved() {
 
 function addRow(dateVal) {
   const id = rid++;
-  rows.push({ id, date: dateVal || '', entry: '', exit: '', note: '' });
+  rows.push({ id, date: dateVal || '', entry: '07:00', exit: '19:00', note: '' });
   renderTable();
   updateSummary();
   save();
