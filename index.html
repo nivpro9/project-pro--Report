@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>דוח נוכחות</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      direction: rtl;
+    }
+
+    /* ── ACTION BAR (נסתר בהדפסה) ── */
+    .actionbar {
+      background: #fff;
+      border-bottom: 1px solid #ddd;
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 99;
+      gap: 10px;
+    }
+    .actionbar img { height: 38px; }
+    .actionbar-btns { display: flex; gap: 8px; }
+    .abtn {
+      padding: 7px 16px; border: none; border-radius: 4px;
+      font-size: 13px; font-weight: bold; font-family: Arial, sans-serif;
+      cursor: pointer;
+    }
+    .abtn-pdf   { background: #1a56db; color: #fff; }
+    .abtn-add   { background: #16a34a; color: #fff; }
+    .abtn-clear { background: #f3f4f6; color: #333; border: 1px solid #ccc; }
+    .total-pill {
+      background: #f0fdf4; border: 1px solid #86efac;
+      border-radius: 20px; padding: 5px 14px;
+      font-size: 13px; font-weight: bold; color: #16a34a;
+    }
+
+    /* ── FORM PAGE ── */
+    .page {
+      max-width: 720px;
+      margin: 20px auto;
+      padding: 24px 28px;
+      background: #fff;
+    }
+
+    /* כותרת */
+    .page-title {
+      text-align: center;
+      font-size: 20px;
+      font-weight: bold;
+      text-decoration: underline;
+      margin-bottom: 20px;
+    }
+
+    /* שדות כותרת */
+    .meta-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .meta-row .meta-label { font-size: 13px; font-weight: bold; white-space: nowrap; }
+    .meta-row input[type="text"] {
+      flex: 1;
+      border: none;
+      border-bottom: 1px solid #000;
+      outline: none;
+      font-size: 13px;
+      font-family: Arial, sans-serif;
+      padding: 2px 4px;
+      background: transparent;
+    }
+    .meta-split { display: flex; gap: 30px; margin-bottom: 14px; }
+    .meta-split .meta-row { flex: 1; }
+
+    /* ── TABLE ── */
+    .tbl-wrap { overflow-x: auto; margin-bottom: 20px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th {
+      border: 1px solid #000;
+      padding: 8px 5px;
+      text-align: center;
+      font-weight: bold;
+      background: #fff;
+    }
+    td {
+      border: 1px solid #000;
+      padding: 0;
+      height: 28px;
+    }
+
+    /* inputs בתוך תאים */
+    td input {
+      width: 100%;
+      height: 100%;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 0 4px;
+      background: transparent;
+      cursor: pointer;
+      color: #000;
+    }
+    td input[type="text"] { text-align: right; padding-right: 6px; cursor: text; }
+    td input[type="date"]::-webkit-calendar-picker-indicator,
+    td input[type="time"]::-webkit-calendar-picker-indicator {
+      opacity: 0;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+    td input[type="date"], td input[type="time"] { position: relative; }
+    td:has(input[type="date"]):hover,
+    td:has(input[type="time"]):hover { background: #f0f5ff; }
+
+    td.total-cell {
+      text-align: center;
+      font-weight: bold;
+      font-size: 13px;
+      padding: 4px;
+      color: #000;
+    }
+    td.del-cell { text-align: center; border: none; background: transparent; width: 24px; }
+    td.del-cell button {
+      background: none; border: none; color: #aaa; font-size: 14px;
+      cursor: pointer; padding: 2px 5px; line-height: 1;
+    }
+    td.del-cell button:hover { color: #dc2626; }
+
+    /* שורת הוספה */
+    .add-row-cell {
+      border: 1px dashed #bbb;
+      text-align: center;
+      padding: 6px;
+    }
+    .add-row-cell button {
+      background: none; border: none; cursor: pointer;
+      color: #1a56db; font-size: 13px; font-weight: bold;
+      font-family: Arial, sans-serif;
+    }
+
+    /* חתימות */
+    .sig-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 50px;
+      margin-top: 10px;
+    }
+    .sig-field { display: flex; align-items: flex-end; gap: 6px; flex: 1; }
+    .sig-field .meta-label { white-space: nowrap; font-size: 13px; font-weight: bold; }
+    .sig-field input {
+      flex: 1;
+      border: none;
+      border-bottom: 1px solid #000;
+      outline: none;
+      font-size: 13px;
+      font-family: Arial, sans-serif;
+      padding: 2px 4px;
+      background: transparent;
+    }
+
+    /* ── PRINT ── */
+    #print-view { display: none; }
+    @media print {
+      body > *:not(#print-view) { display: none !important; }
+      #print-view {
+        display: block !important;
+        font-family: Arial, sans-serif;
+        font-size: 13px;
+        color: #000;
+        direction: rtl;
+        padding: 8mm 12mm;
+      }
+      #print-view .pv-logo-row {
+        display: flex; justify-content: flex-end; margin-bottom: 4px;
+      }
+      #print-view .pv-logo { height: 42px; }
+      #print-view h1 {
+        text-align: center; font-size: 20px; font-weight: bold;
+        text-decoration: underline; margin-bottom: 18px;
+      }
+      #print-view .pv-field { display: flex; align-items: flex-end; gap: 6px; margin-bottom: 10px; }
+      #print-view .pv-split { display: flex; gap: 40px; margin-bottom: 14px; }
+      #print-view .pv-split > div { display: flex; align-items: flex-end; gap: 6px; flex: 1; }
+      #print-view .lbl { font-weight: bold; white-space: nowrap; font-size: 13px; }
+      #print-view .line { border-bottom: 1px solid #000; flex: 1; min-width: 80px; padding-bottom: 2px; font-size: 13px; }
+      #print-view table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+      #print-view th {
+        border: 1px solid #000; padding: 7px 4px; text-align: center;
+        font-size: 13px; font-weight: bold;
+      }
+      #print-view td {
+        border: 1px solid #000; padding: 4px; text-align: center;
+        height: 21px; font-size: 12px;
+      }
+      #print-view td.note { text-align: right; padding-right: 5px; }
+      #print-view .pv-footer { display: flex; justify-content: space-between; gap: 50px; margin-top: 8px; }
+      #print-view .pv-footer > div { display: flex; align-items: flex-end; gap: 8px; flex: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ACTION BAR -->
+<div class="actionbar">
+  <img src="LOGO.png" alt="לוגו">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <div class="total-pill">סה"כ: <span id="sTotal">0:00</span> | ימים: <span id="sDays">0</span></div>
+    <button class="abtn abtn-add"   onclick="addRow()">＋ הוסף יום</button>
+    <button class="abtn abtn-pdf"   onclick="exportPDF()">📄 ייצוא PDF</button>
+    <button class="abtn abtn-clear" onclick="clearAll()">🗑️ נקה</button>
+  </div>
+</div>
+
+<!-- FORM -->
+<div class="page">
+  <div class="page-title">דוח נוכחות</div>
+
+  <div class="meta-row">
+    <span class="meta-label">שם החברה והאתר:</span>
+    <input type="text" id="company">
+  </div>
+
+  <div class="meta-split">
+    <div class="meta-row">
+      <span class="meta-label">שם עובד:</span>
+      <input type="text" id="empName">
+    </div>
+    <div class="meta-row" style="flex:0.6">
+      <span class="meta-label">ת.ז.</span>
+      <input type="text" id="empId">
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:120px">תאריך</th>
+          <th style="width:95px">כניסה</th>
+          <th style="width:95px">יציאה</th>
+          <th style="width:90px">סה"כ שעות</th>
+          <th>הערה ליום</th>
+          <th style="width:0px;border:none;background:transparent"></th>
+        </tr>
+      </thead>
+      <tbody id="tblBody"></tbody>
+      <tfoot>
+        <tr>
+          <td colspan="5" class="add-row-cell">
+            <button onclick="addRow()">＋ הוסף שורה</button>
+          </td>
+          <td style="border:none"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="sig-row">
+    <div class="sig-field">
+      <span class="meta-label">חתימת העובד:</span>
+      <input type="text" id="sigEmp">
+    </div>
+    <div class="sig-field">
+      <span class="meta-label">אישור מנהל:</span>
+      <input type="text" id="sigMgr">
+    </div>
+  </div>
+</div>
+
+<div id="print-view"></div>
+
+<script>
+let rows = [], rid = 0;
+
+function addRow(dateVal) {
+  const id = rid++;
+  rows.push({ id, date: dateVal || '', entry: '', exit: '', note: '' });
+  renderTable();
+  updateSummary();
+  setTimeout(() => {
+    const el = document.getElementById('row_' + id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 40);
+}
+
+function del(id) { rows = rows.filter(r => r.id !== id); renderTable(); updateSummary(); }
+
+function upd(id, f, v) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  r[f] = v;
+  const h = calcH(r.entry, r.exit);
+  const cell = document.getElementById('tot_' + id);
+  if (cell) cell.textContent = h;
+  updateSummary();
+}
+
+function calcH(en, ex) {
+  if (!en || !ex) return '';
+  const [eh,em] = en.split(':').map(Number);
+  const [xh,xm] = ex.split(':').map(Number);
+  let m = (xh*60+xm)-(eh*60+em);
+  if (m < 0) m += 1440;
+  return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function renderTable() {
+  const tb = document.getElementById('tblBody');
+  tb.innerHTML = '';
+  rows.forEach(r => {
+    const h = calcH(r.entry, r.exit);
+    const tr = document.createElement('tr');
+    tr.id = 'row_' + r.id;
+    tr.innerHTML = `
+      <td><input type="date" value="${r.date}"
+           onchange="upd(${r.id},'date',this.value)"
+           onclick="this.showPicker&&this.showPicker()"></td>
+      <td><input type="time" value="${r.entry}"
+           onchange="upd(${r.id},'entry',this.value)"
+           onclick="this.showPicker&&this.showPicker()"></td>
+      <td><input type="time" value="${r.exit}"
+           onchange="upd(${r.id},'exit',this.value)"
+           onclick="this.showPicker&&this.showPicker()"></td>
+      <td class="total-cell" id="tot_${r.id}">${h}</td>
+      <td><input type="text" value="${r.note}" oninput="upd(${r.id},'note',this.value)" placeholder=""></td>
+      <td class="del-cell"><button onclick="del(${r.id})">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function updateSummary() {
+  let total = 0, cnt = 0;
+  rows.forEach(r => {
+    const h = calcH(r.entry, r.exit);
+    if (h) { const [hh,mm] = h.split(':').map(Number); total += hh*60+mm; cnt++; }
+  });
+  const h = Math.floor(total/60), m = total%60;
+  document.getElementById('sDays').textContent  = rows.length;
+  document.getElementById('sTotal').textContent = `${h}:${String(m).padStart(2,'0')}`;
+}
+
+function exportPDF() {
+  const company = document.getElementById('company').value || '';
+  const empName = document.getElementById('empName').value || '';
+  const empId   = document.getElementById('empId').value   || '';
+  const sigEmp  = document.getElementById('sigEmp').value  || '';
+  const sigMgr  = document.getElementById('sigMgr').value  || '';
+
+  let trows = '';
+  rows.forEach(r => {
+    trows += `<tr>
+      <td>${fmtDate(r.date)}</td>
+      <td>${r.entry}</td><td>${r.exit}</td>
+      <td>${calcH(r.entry,r.exit)}</td>
+      <td class="note">${r.note}</td>
+    </tr>`;
+  });
+  for (let i = rows.length; i < 27; i++) {
+    trows += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
+  }
+
+  document.getElementById('print-view').innerHTML = `
+    <div class="pv-logo-row"><img class="pv-logo" src="LOGO.png" alt="לוגו"></div>
+    <h1>דוח נוכחות</h1>
+    <div class="pv-field">
+      <span class="lbl">שם החברה והאתר:</span><span class="line">${company}</span>
+    </div>
+    <div class="pv-split">
+      <div><span class="lbl">שם עובד:</span><span class="line">${empName}</span></div>
+      <div style="flex:0.6"><span class="lbl">ת.ז.</span><span class="line">${empId}</span></div>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:16%">תאריך</th>
+        <th style="width:13%">כניסה</th>
+        <th style="width:13%">יציאה</th>
+        <th style="width:13%">סה"כ שעות</th>
+        <th>הערה ליום</th>
+      </tr></thead>
+      <tbody>${trows}</tbody>
+    </table>
+    <div class="pv-footer">
+      <div><span class="lbl">חתימת העובד:</span><span class="line">${sigEmp}</span></div>
+      <div><span class="lbl">אישור מנהל:</span><span class="line">${sigMgr}</span></div>
+    </div>`;
+  window.print();
+}
+
+function clearAll() {
+  if (!confirm('למחוק את כל הנתונים?')) return;
+  rows = [];
+  ['company','empName','empId','sigEmp','sigMgr'].forEach(id => document.getElementById(id).value = '');
+  renderTable();
+  updateSummary();
+}
+
+// פתח עם שורה ריקה אחת
+addRow();
+</script>
+</body>
+</html>
