@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; color: #111; }
+
+    .topbar {
+      background: #fff;
+      border-bottom: 2px solid #1a56db;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 99;
+    }
+    .topbar .logo { height: 44px; }
+    .topbar-btns { display: flex; gap: 8px; }
+    .btn {
+      padding: 8px 16px; border-radius: 5px; border: none;
+      font-size: 13px; font-family: Arial, sans-serif;
+      cursor: pointer; font-weight: bold;
+    }
+    .btn-export { background: #1a56db; color: #fff; }
+    .btn-clear  { background: #e5e7eb; color: #111; }
+
+    .main { max-width: 820px; margin: 0 auto; padding: 16px; }
+
+    .hdr-grid {
+      background: #fff; border: 1px solid #ddd; border-radius: 6px;
+      padding: 14px 16px;
+      display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 12px;
+      margin-bottom: 12px;
+    }
+    @media (max-width: 600px) { .hdr-grid { grid-template-columns: 1fr; } }
+    .hdr-field label { display: block; font-size: 11px; color: #666; margin-bottom: 4px; font-weight: bold; }
+    .hdr-field input {
+      width: 100%; border: 1px solid #ccc; border-radius: 4px;
+      padding: 8px 10px; font-size: 14px; font-family: Arial, sans-serif; outline: none;
+    }
+    .hdr-field input:focus { border-color: #1a56db; }
+
+    .summary {
+      background: #e8f0fe; border: 1px solid #c3d4f7; border-radius: 6px;
+      padding: 10px 16px; display: flex; gap: 24px; margin-bottom: 12px;
+      font-size: 14px; flex-wrap: wrap;
+    }
+    .summary span { color: #1a56db; font-weight: bold; }
+
+    /* ── TABLE ── */
+    .tbl-wrap {
+      background: #fff; border: 1px solid #ddd; border-radius: 6px;
+      overflow: hidden; margin-bottom: 12px;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #1a56db; color: #fff; padding: 10px 6px; text-align: center; font-size: 13px; }
+    td { border-bottom: 1px solid #eee; padding: 1px; text-align: center; }
+    tr:last-child td { border-bottom: none; }
+    td input[type="date"], td input[type="time"], td input[type="text"] {
+      width: 100%; border: none; outline: none;
+      padding: 9px 6px; font-size: 13px; font-family: Arial, sans-serif;
+      background: transparent; text-align: center;
+    }
+    td input:focus { background: #f0f5ff; }
+    td input[type="text"] { text-align: left; padding-left: 8px; }
+    .td-total { font-weight: bold; color: #16a34a; font-size: 13px; }
+    .td-del button { background: none; border: none; color: #dc2626; font-size: 16px; cursor: pointer; padding: 4px 8px; }
+    .add-row-btn {
+      width: 100%; padding: 9px; background: none; border: 2px dashed #bbb;
+      border-radius: 5px; cursor: pointer; color: #1a56db;
+      font-size: 13px; font-weight: bold; font-family: Arial, sans-serif;
+    }
+    .add-row-btn:hover { border-color: #1a56db; background: #f0f5ff; }
+
+    /* ── MOBILE CARDS ── */
+    .cards { display: none; }
+    @media (max-width: 640px) {
+      .tbl-wrap { display: none; }
+      .cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+      .card { background: #fff; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+      .card-head {
+        background: #1a56db; color: #fff; padding: 8px 12px;
+        display: flex; align-items: center; justify-content: space-between;
+        font-size: 13px; font-weight: bold;
+      }
+      .card-head .del { background: none; border: none; color: #fff; font-size: 16px; cursor: pointer; }
+      .card-head .hours-badge { background: #16a34a; border-radius: 12px; padding: 2px 9px; font-size: 12px; }
+      .card-body { padding: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .card-field { display: flex; flex-direction: column; gap: 4px; }
+      .card-field label { font-size: 11px; color: #666; font-weight: bold; }
+      .card-field input, .card-field .hours-display {
+        border: 1px solid #ccc; border-radius: 4px;
+        padding: 9px 10px; font-size: 14px; font-family: Arial, sans-serif;
+        outline: none; width: 100%;
+      }
+      .card-field input:focus { border-color: #1a56db; }
+      .card-field .hours-display { font-weight: bold; color: #16a34a; background: #f0fdf4; border-color: #86efac; min-height: 40px; }
+      .card-field.full { grid-column: 1 / -1; }
+      .mobile-add-btn {
+        width: 100%; padding: 13px; background: #1a56db; color: #fff;
+        border: none; border-radius: 6px; font-size: 15px; font-weight: bold;
+        font-family: Arial, sans-serif; cursor: pointer; margin-bottom: 12px;
+      }
+    }
+    @media (min-width: 641px) { .mobile-add-btn { display: none; } }
+
+    /* ── SIGNATURES ── */
+    .sig-row {
+      background: #fff; border: 1px solid #ddd; border-radius: 6px;
+      padding: 14px 16px; display: flex; gap: 30px; flex-wrap: wrap;
+    }
+    .sig-field { flex: 1; min-width: 180px; }
+    .sig-field label { font-size: 11px; color: #666; font-weight: bold; display: block; margin-bottom: 4px; }
+    .sig-field input {
+      width: 100%; border: none; border-bottom: 1px solid #999;
+      padding: 6px 2px; font-size: 14px; font-family: Arial, sans-serif;
+      outline: none; background: transparent;
+    }
+
+    /* ── PRINT — exact match to original format ── */
+    #print-view { display: none; }
+    @media print {
+      body > *:not(#print-view) { display: none !important; }
+      #print-view {
+        display: block !important;
+        font-family: Arial, sans-serif; font-size: 13px; color: #000;
+        padding: 8mm 12mm;
+      }
+      #print-view .pv-top {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+      }
+      #print-view .pv-logo { height: 48px; }
+      #print-view h1 { font-size: 20px; font-weight: bold; text-decoration: underline; text-align: center; flex: 1; }
+      #print-view .pv-field { display: flex; align-items: flex-end; gap: 6px; margin-bottom: 8px; }
+      #print-view .pv-row { display: flex; gap: 40px; margin-bottom: 12px; }
+      #print-view .pv-row > div { display: flex; align-items: flex-end; gap: 6px; flex: 1; }
+      #print-view .lbl { font-weight: bold; white-space: nowrap; }
+      #print-view .line { border-bottom: 1px solid #000; flex: 1; min-width: 80px; padding-bottom: 1px; }
+      #print-view table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+      #print-view th {
+        border: 1px solid #000; padding: 6px 4px; text-align: center;
+        font-size: 13px; font-weight: bold; background: none; color: #000;
+      }
+      #print-view td { border: 1px solid #000; padding: 4px; text-align: center; height: 20px; font-size: 12px; }
+      #print-view td.note { text-align: left; padding-left: 5px; }
+      #print-view .pv-footer { display: flex; justify-content: space-between; gap: 50px; }
+      #print-view .pv-footer > div { display: flex; align-items: flex-end; gap: 8px; flex: 1; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <img class="logo" src="LOGO.png" alt="Logo">
+  <div class="topbar-btns">
+    <button class="btn btn-export" onclick="exportPDF()">📄 Export PDF</button>
+    <button class="btn btn-clear"  onclick="clearAll()">🗑️ Clear</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="hdr-grid">
+    <div class="hdr-field">
+      <label>Company &amp; Site Name</label>
+      <input type="text" id="company" placeholder="">
+    </div>
+    <div class="hdr-field">
+      <label>Employee Name</label>
+      <input type="text" id="empName" placeholder="">
+    </div>
+    <div class="hdr-field">
+      <label>ID Number</label>
+      <input type="text" id="empId" placeholder="">
+    </div>
+  </div>
+
+  <div class="summary">
+    <div>Days: <span id="sDays">0</span></div>
+    <div>Total Hours: <span id="sTotal">0:00</span></div>
+    <div>Daily Average: <span id="sAvg">–</span></div>
+  </div>
+
+  <button class="mobile-add-btn" onclick="addRow()">＋ Add Day</button>
+
+  <div class="cards" id="cardsWrap"></div>
+
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:140px">Date</th>
+          <th style="width:110px">Entry</th>
+          <th style="width:110px">Exit</th>
+          <th style="width:95px">Total Hours</th>
+          <th>Note</th>
+          <th style="width:38px"></th>
+        </tr>
+      </thead>
+      <tbody id="tblBody"></tbody>
+    </table>
+    <div style="padding:6px">
+      <button class="add-row-btn" onclick="addRow()">＋ Add Row</button>
+    </div>
+  </div>
+
+  <div class="sig-row">
+    <div class="sig-field">
+      <label>Employee Signature</label>
+      <input type="text" id="sigEmp" placeholder="">
+    </div>
+    <div class="sig-field">
+      <label>Manager Approval</label>
+      <input type="text" id="sigMgr" placeholder="">
+    </div>
+  </div>
+
+</div>
+
+<div id="print-view"></div>
+
+<script>
+let rows = [], rid = 0;
+
+function addRow(dateVal) {
+  const id = rid++;
+  rows.push({ id, date: dateVal || new Date().toISOString().split('T')[0], entry: '', exit: '', note: '' });
+  render();
+  setTimeout(() => {
+    const el = document.getElementById('c_' + id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 40);
+}
+
+function del(id) { rows = rows.filter(r => r.id !== id); render(); }
+
+function upd(id, f, v) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  r[f] = v;
+  syncTotals(id);
+  updateSummary();
+}
+
+function calcH(en, ex) {
+  if (!en || !ex) return '';
+  const [eh,em] = en.split(':').map(Number);
+  const [xh,xm] = ex.split(':').map(Number);
+  let m = (xh*60+xm)-(eh*60+em);
+  if (m < 0) m += 1440;
+  return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`;
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function render() { renderTable(); renderCards(); updateSummary(); }
+
+function renderTable() {
+  const tb = document.getElementById('tblBody');
+  tb.innerHTML = '';
+  rows.forEach(r => {
+    const h = calcH(r.entry, r.exit);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="date" value="${r.date}" onchange="upd(${r.id},'date',this.value)"></td>
+      <td><input type="time" value="${r.entry}" onchange="upd(${r.id},'entry',this.value)"></td>
+      <td><input type="time" value="${r.exit}"  onchange="upd(${r.id},'exit',this.value)"></td>
+      <td class="td-total" id="dh_${r.id}">${h}</td>
+      <td><input type="text" value="${r.note}" placeholder="Note..." oninput="upd(${r.id},'note',this.value)"></td>
+      <td class="td-del"><button onclick="del(${r.id})">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function renderCards() {
+  const wrap = document.getElementById('cardsWrap');
+  wrap.innerHTML = '';
+  rows.forEach((r, i) => {
+    const h = calcH(r.entry, r.exit);
+    const div = document.createElement('div');
+    div.className = 'card'; div.id = 'c_' + r.id;
+    div.innerHTML = `
+      <div class="card-head">
+        <span>Day ${i+1} · ${fmtDate(r.date)}</span>
+        ${h ? `<span class="hours-badge">${h} hrs</span>` : ''}
+        <button class="del" onclick="del(${r.id})">✕</button>
+      </div>
+      <div class="card-body">
+        <div class="card-field">
+          <label>📅 Date</label>
+          <input type="date" value="${r.date}" onchange="upd(${r.id},'date',this.value);render()">
+        </div>
+        <div class="card-field">
+          <label>⏱ Hours</label>
+          <div class="hours-display" id="ch_${r.id}">${h || '–'}</div>
+        </div>
+        <div class="card-field">
+          <label>⏩ Entry</label>
+          <input type="time" value="${r.entry}" onchange="upd(${r.id},'entry',this.value)">
+        </div>
+        <div class="card-field">
+          <label>⏪ Exit</label>
+          <input type="time" value="${r.exit}" onchange="upd(${r.id},'exit',this.value)">
+        </div>
+        <div class="card-field full">
+          <label>📝 Note</label>
+          <input type="text" value="${r.note}" placeholder="Daily note..." oninput="upd(${r.id},'note',this.value)">
+        </div>
+      </div>`;
+    wrap.appendChild(div);
+  });
+}
+
+function syncTotals(id) {
+  const r = rows.find(r => r.id === id);
+  if (!r) return;
+  const h = calcH(r.entry, r.exit);
+  const dt = document.getElementById('dh_' + id);
+  const ct = document.getElementById('ch_' + id);
+  if (dt) dt.textContent = h;
+  if (ct) ct.textContent = h || '–';
+}
+
+function updateSummary() {
+  let total = 0, cnt = 0;
+  rows.forEach(r => {
+    const h = calcH(r.entry, r.exit);
+    if (h) { const [hh,mm] = h.split(':').map(Number); total += hh*60+mm; cnt++; }
+  });
+  const h = Math.floor(total/60), m = total%60;
+  document.getElementById('sDays').textContent  = rows.length;
+  document.getElementById('sTotal').textContent = `${h}:${String(m).padStart(2,'0')}`;
+  document.getElementById('sAvg').textContent   = cnt > 0
+    ? `${Math.floor(Math.round(total/cnt)/60)}:${String(Math.round(total/cnt)%60).padStart(2,'0')}`
+    : '–';
+}
+
+function exportPDF() {
+  const company = document.getElementById('company').value || '';
+  const empName = document.getElementById('empName').value || '';
+  const empId   = document.getElementById('empId').value   || '';
+  const sigEmp  = document.getElementById('sigEmp').value  || '';
+  const sigMgr  = document.getElementById('sigMgr').value  || '';
+
+  let trows = '';
+  rows.forEach(r => {
+    trows += `<tr>
+      <td>${fmtDate(r.date)}</td>
+      <td>${r.entry}</td>
+      <td>${r.exit}</td>
+      <td>${calcH(r.entry,r.exit)}</td>
+      <td class="note">${r.note}</td>
+    </tr>`;
+  });
+  for (let i = rows.length; i < 27; i++) {
+    trows += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
+  }
+
+  document.getElementById('print-view').innerHTML = `
+    <div class="pv-top">
+      <img class="pv-logo" src="LOGO.png" alt="Logo">
+      <h1>Attendance Report</h1>
+      <div style="width:120px"></div>
+    </div>
+    <div class="pv-field">
+      <span class="lbl">Company &amp; Site Name:</span>
+      <span class="line">${company}</span>
+    </div>
+    <div class="pv-row">
+      <div><span class="lbl">Employee Name:</span><span class="line">${empName}</span></div>
+      <div><span class="lbl">ID:</span><span class="line" style="max-width:160px">${empId}</span></div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:16%">Date</th>
+          <th style="width:13%">Entry</th>
+          <th style="width:13%">Exit</th>
+          <th style="width:13%">Total Hours</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody>${trows}</tbody>
+    </table>
+    <div class="pv-footer">
+      <div><span class="lbl">Employee Signature:</span><span class="line">${sigEmp}</span></div>
+      <div><span class="lbl">Manager Approval:</span><span class="line">${sigMgr}</span></div>
+    </div>`;
+
+  window.print();
+}
+
+function clearAll() {
+  if (!confirm('Clear all data?')) return;
+  rows = [];
+  ['company','empName','empId','sigEmp','sigMgr'].forEach(id => document.getElementById(id).value = '');
+  render();
+}
+
+addRow();
+</script>
+</body>
+</html>
